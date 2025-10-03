@@ -1,164 +1,160 @@
-import React, { useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  RefreshControl,
-} from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, TextInput } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import ScreenContainer from '../components/molecules/ScreenContainer';
+import SectionHeading from '../components/molecules/SectionHeading';
+import Card from '../components/atoms/Card';
+import Badge from '../components/atoms/Badge';
+import ListRow from '../components/molecules/ListRow';
+import EmptyState from '../components/molecules/EmptyState';
+import LoadingState from '../components/molecules/LoadingState';
+import ErrorState from '../components/molecules/ErrorState';
 import { api } from '../api/client';
 import { formatCurrency } from '../utils/formatters';
-
-function ItemCard({ item }) {
-  return (
-    <View style={styles.itemCard}>
-      <View style={{ flex: 1, gap: 6 }}>
-        <Text style={styles.itemName}>{item.name}</Text>
-        <Text style={styles.itemDescription}>
-          {item.description || 'No description yet.'}
-        </Text>
-        <View style={styles.itemMetaRow}>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{item.quantity} on hand</Text>
-          </View>
-          <Text style={styles.itemPrice}>{formatCurrency(item.price)}</Text>
-        </View>
-        <View style={styles.itemMetaRow}>
-          <Text style={styles.itemSubtitle}>Sold: {item.totalSold}</Text>
-          <Text style={styles.itemSubtitle}>Revenue: {formatCurrency(item.totalRevenue)}</Text>
-        </View>
-        {item.tag ? (
-          <View style={[styles.badge, styles.tagBadge]}>
-            <Text style={[styles.badgeText, styles.tagBadgeText]}>{item.tag}</Text>
-          </View>
-        ) : null}
-      </View>
-    </View>
-  );
-}
+import { colors, spacing } from '../constants/theme';
+import AppButton from '../components/atoms/AppButton';
 
 export default function InventoryScreen() {
   const queryClient = useQueryClient();
-  const { data, isLoading, isRefetching, refetch } = useQuery({
-    queryKey: ['items'],
-    queryFn: api.getItems,
-  });
+  const navigation = useNavigation();
+  const [search, setSearch] = useState('');
 
-  const onRefresh = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: ['items'] });
-    await refetch();
-  }, [queryClient, refetch]);
+  const itemsQuery = useQuery({ queryKey: ['items'], queryFn: api.getItems });
 
-  const items = data ?? [];
-  const lowStockCount = items.filter(item => item.quantity < 5).length;
+  const onRefresh = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['items'] });
+    return itemsQuery.refetch();
+  }, [queryClient, itemsQuery]);
+
+  const items = useMemo(() => {
+    const source = itemsQuery.data;
+    if (!source) return [];
+    if (!search.trim()) return source;
+    const term = search.toLowerCase();
+    return source.filter(item => item.name?.toLowerCase().includes(term) || item.tag?.toLowerCase().includes(term));
+  }, [itemsQuery.data, search]);
+
+  const lowStock = (itemsQuery.data ?? []).filter(item => item.quantity < 5);
+
+  if (itemsQuery.isLoading || itemsQuery.isRefetching) {
+    return (
+      <ScreenContainer>
+        <LoadingState message="Loading inventory…" />
+      </ScreenContainer>
+    );
+  }
+
+  if (itemsQuery.isError) {
+    return (
+      <ScreenContainer>
+        <ErrorState message={itemsQuery.error?.message || 'Unable to load inventory'} onRetry={onRefresh} />
+      </ScreenContainer>
+    );
+  }
 
   return (
-    <View style={styles.container}>
-      <FlatList
-        data={items}
-        keyExtractor={item => String(item.id)}
-        contentContainerStyle={styles.listContent}
-        refreshControl={(
-          <RefreshControl refreshing={isRefetching || isLoading} onRefresh={onRefresh} />
+    <ScreenContainer onRefresh={onRefresh} refreshing={itemsQuery.isRefetching}>
+      <Text style={styles.title}>Inventory</Text>
+      <Text style={styles.subtitle}>{itemsQuery.data?.length ?? 0} items · {lowStock.length} low stock</Text>
+
+      <Card style={styles.searchCard}>
+        <TextInput
+          placeholder="Search items…"
+          placeholderTextColor={colors.textMuted}
+          value={search}
+          onChangeText={setSearch}
+          style={styles.searchInput}
+        />
+      </Card>
+
+      <SectionHeading
+        title="Products"
+        action={(
+          <AppButton
+            title="Add Item"
+            onPress={() => navigation.navigate('InventoryForm', { mode: 'create' })}
+            variant="primary"
+          />
         )}
-        ListHeaderComponent={(
-          <View style={styles.header}>
-            <Text style={styles.title}>Inventory</Text>
-            <Text style={styles.subtitle}>
-              {items.length} items · {lowStockCount} low stock alerts
-            </Text>
-          </View>
-        )}
-        renderItem={({ item }) => <ItemCard item={item} />}
-        ListEmptyComponent={(
-          <Text style={styles.emptyText}>
-            No items yet. Add products from the desktop admin to see them here.
-          </Text>
-        )}
+        style={{ marginBottom: spacing.md }}
       />
-    </View>
+      <Card>
+        {items.length ? (
+          items.map(item => (
+            <ListRow
+              key={item.id}
+              title={item.name}
+              subtitle={item.description || 'No description'}
+              meta={
+                <View style={styles.itemMeta}>
+                  <Text style={styles.itemPrice}>{formatCurrency(item.price)}</Text>
+                  <Badge
+                    label={`${item.quantity} on hand`}
+                    variant={item.quantity < 5 ? (item.quantity === 0 ? 'danger' : 'warning') : 'info'}
+                  />
+                </View>
+              }
+              onPress={() => navigation.navigate('InventoryDetail', { itemId: item.id })}
+            >
+              <View style={styles.itemTagRow}>
+                {item.tag ? <Badge label={item.tag} /> : null}
+                {item.totalSold ? (
+                  <Text style={styles.itemMetaText}>Sold {item.totalSold} · Revenue {formatCurrency(item.totalRevenue)}</Text>
+                ) : null}
+              </View>
+            </ListRow>
+          ))
+        ) : (
+          <EmptyState message={search ? 'No items match your search.' : 'Inventory is empty.'} />
+        )}
+      </Card>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f6f7fb',
-  },
-  listContent: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  header: {
-    marginBottom: 16,
-  },
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.text,
   },
   subtitle: {
     fontSize: 14,
-    color: '#475569',
+    color: colors.textSecondary,
+    marginBottom: spacing.lg,
   },
-  itemCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#0f172a',
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+  searchInput: {
+    borderRadius: 12,
+    backgroundColor: colors.surfaceSubtle,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: 16,
+    color: colors.text,
   },
-  itemName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1f2937',
+  searchCard: {
+    gap: spacing.md,
+    marginBottom: spacing.md,
   },
-  itemDescription: {
-    fontSize: 14,
-    color: '#64748b',
-  },
-  itemMetaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  itemMeta: {
+    alignItems: 'flex-end',
+    gap: spacing.xs,
   },
   itemPrice: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1f2937',
+    color: colors.text,
   },
-  itemSubtitle: {
+  itemTagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  itemMetaText: {
     fontSize: 12,
-    color: '#64748b',
-  },
-  badge: {
-    backgroundColor: '#e0f2fe',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  badgeText: {
-    fontSize: 12,
-    color: '#1d4ed8',
-    fontWeight: '600',
-  },
-  tagBadge: {
-    marginTop: 8,
-    alignSelf: 'flex-start',
-    backgroundColor: '#fee2e2',
-  },
-  tagBadgeText: {
-    color: '#991b1b',
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#94a3b8',
-    textAlign: 'center',
-    marginTop: 32,
+    color: colors.textMuted,
   },
 });
