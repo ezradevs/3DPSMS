@@ -43,6 +43,15 @@ router.put('/spools/:id', (req, res, next) => {
   }
 });
 
+router.delete('/spools/:id', (req, res, next) => {
+  try {
+    filamentService.deleteSpool(Number(req.params.id));
+    res.status(204).end();
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/spools/:id/usage', (req, res, next) => {
   try {
     const usageEntries = filamentService.listUsage(Number(req.params.id));

@@ -90,7 +90,7 @@ export default function FilamentDetailScreen() {
   };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer contentContainerStyle={{ paddingTop: spacing.lg }}>
       <SectionHeading
         title={[spool.material, spool.color, spool.brand].filter(Boolean).join(' • ') || `Spool #${spool.id}`}
         action={<AppButton title="Edit" variant="secondary" onPress={() => navigation.navigate('FilamentForm', { mode: 'edit', spoolId })} />}
@@ -108,7 +108,7 @@ export default function FilamentDetailScreen() {
         </View>
         {spool.notes ? (
           <View style={styles.section}>
-            <Text style={styles.label}>Notes</Text>
+            <Text style={styles.sectionLabel}>Notes</Text>
             <Text style={styles.value}>{spool.notes}</Text>
           </View>
         ) : null}
@@ -117,7 +117,7 @@ export default function FilamentDetailScreen() {
         ) : null}
       </Card>
 
-      <SectionHeading title="Log usage" />
+      <SectionHeading title="Log usage" style={{ marginTop: spacing.lg }} />
       <Card style={{ gap: spacing.md }}>
         <FormField
           label="Used grams"
@@ -135,19 +135,20 @@ export default function FilamentDetailScreen() {
         />
       </Card>
 
-      <SectionHeading title="Usage history" />
+      <SectionHeading title="Usage history" style={{ marginTop: spacing.lg }} />
       <Card>
         {usageQuery.isLoading ? (
           <LoadingState message="Loading usage…" />
         ) : usageQuery.isError ? (
           <ErrorState message={usageQuery.error?.message || 'Unable to load usage'} onRetry={usageQuery.refetch} />
         ) : usageQuery.data?.length ? (
-          usageQuery.data.map(entry => (
+          usageQuery.data.map((entry, index) => (
             <ListRow
               key={entry.id}
               title={`${entry.usedGrams}g used`}
               subtitle={entry.reason || '—'}
               meta={<Text style={styles.helper}>{formatDate(entry.createdAt)}</Text>}
+              showDivider={index !== usageQuery.data.length - 1}
             >
               {entry.reference ? <Text style={styles.value}>Reference: {entry.reference}</Text> : null}
             </ListRow>
@@ -163,7 +164,7 @@ export default function FilamentDetailScreen() {
 function SummaryTile({ label, value }) {
   return (
     <View style={styles.summaryTile}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.summaryLabel}>{label}</Text>
       <Text style={styles.summaryValue}>{value}</Text>
     </View>
   );
@@ -181,10 +182,10 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: spacing.xs,
   },
-  label: {
-    fontSize: 14,
+  summaryLabel: {
+    fontSize: 12,
     fontWeight: '600',
-    color: colors.text,
+    color: colors.textMuted,
   },
   summaryValue: {
     fontSize: 16,
@@ -193,6 +194,11 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: spacing.xs,
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
   },
   value: {
     fontSize: 14,

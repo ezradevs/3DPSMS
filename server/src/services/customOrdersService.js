@@ -118,10 +118,20 @@ function updateOrder(id, data) {
   return getOrderById(id);
 }
 
+function deleteOrder(id) {
+  const db = getDb();
+  const existing = db.prepare('SELECT id FROM custom_orders WHERE id = ?').get(id);
+  if (!existing) {
+    throw Object.assign(new Error('Order not found'), { status: 404 });
+  }
+  db.prepare('DELETE FROM custom_orders WHERE id = ?').run(id);
+}
+
 module.exports = {
   ORDER_STATUSES,
   listOrders,
   getOrderById,
   createOrder,
   updateOrder,
+  deleteOrder,
 };

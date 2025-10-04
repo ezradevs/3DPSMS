@@ -94,6 +94,10 @@ export function adjustItemQuantity(itemId, body) {
   return request(`/items/${itemId}/adjust`, { method: 'POST', body });
 }
 
+export function deleteItem(itemId) {
+  return request(`/items/${itemId}`, { method: 'DELETE' });
+}
+
 // Sessions & sales
 export function getSessions() {
   return request('/sessions');
@@ -132,6 +136,10 @@ export function updateCustomOrder(id, body) {
   return request(`/custom-orders/${id}`, { method: 'PUT', body });
 }
 
+export function deleteCustomOrder(id) {
+  return request(`/custom-orders/${id}`, { method: 'DELETE' });
+}
+
 // Filament
 export function listFilamentSpools() {
   return request('/filament/spools');
@@ -147,6 +155,10 @@ export function createFilamentSpool(body) {
 
 export function updateFilamentSpool(id, body) {
   return request(`/filament/spools/${id}`, { method: 'PUT', body });
+}
+
+export function deleteFilamentSpool(id) {
+  return request(`/filament/spools/${id}`, { method: 'DELETE' });
 }
 
 export function listFilamentUsage(id) {
@@ -204,6 +216,7 @@ export const api = {
   createItem,
   updateItem,
   adjustItemQuantity,
+  deleteItem,
   getSessions,
   getSession,
   createSession,
@@ -213,10 +226,12 @@ export const api = {
   getCustomOrder,
   createCustomOrder,
   updateCustomOrder,
+  deleteCustomOrder,
   listFilamentSpools,
   getFilamentSpool,
   createFilamentSpool,
   updateFilamentSpool,
+  deleteFilamentSpool,
   listFilamentUsage,
   logFilamentUsage,
   listPrintJobs,

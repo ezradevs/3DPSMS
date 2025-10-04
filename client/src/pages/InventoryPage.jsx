@@ -29,7 +29,7 @@ const drynessLabels = {
   open: 'Open',
 };
 
-const TAG_OPTIONS = ['Decotr', 'Fidget Toy', 'Functional/Practical Item', 'Gimmick'];
+const TAG_OPTIONS = ['Decorr', 'Fidget Toy', 'Functional/Practical Item', 'Gimmick'];
 
 function InventoryPage() {
   const [items, setItems] = useState([]);

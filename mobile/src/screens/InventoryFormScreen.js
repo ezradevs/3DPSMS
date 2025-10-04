@@ -15,7 +15,7 @@ import { api, resolveUploadUrl } from '../api/client';
 import { buildItemFormData, guessMimeType } from '../shared/formData';
 import { colors, spacing } from '../constants/theme';
 
-const TAG_OPTIONS = ['Decotr', 'Fidget Toy', 'Functional/Practical Item', 'Gimmick'];
+const TAG_OPTIONS = ['Decor', 'Fidget Toy', 'Functional/Practical Item', 'Gimmick'];
 
 export default function InventoryFormScreen() {
   const navigation = useNavigation();
@@ -178,7 +178,7 @@ export default function InventoryFormScreen() {
   }
 
   return (
-    <ScreenContainer scrollable>
+    <ScreenContainer scrollable contentContainerStyle={{ paddingTop: spacing.lg }}>
       <SectionHeading title={isEdit ? 'Edit Item' : 'Add Item'} />
       <Card style={{ gap: spacing.md }}>
         <View style={styles.imageWrapper}>
@@ -197,7 +197,9 @@ export default function InventoryFormScreen() {
           </View>
         </View>
 
-        <FormField label="Name" value={name} onChangeText={setName} placeholder="Item name" />
+        <View style={styles.formSectionSpacing}>
+          <FormField label="Name" value={name} onChangeText={setName} placeholder="Item name" />
+        </View>
         <FormField
           label="Description"
           value={description}
@@ -220,7 +222,7 @@ export default function InventoryFormScreen() {
           />
         </View>
 
-        <View style={{ gap: spacing.sm }}>
+        <View style={[{ gap: spacing.sm }, styles.formSectionSpacing]}>
           <Text style={styles.label}>Default filament</Text>
           {spoolsQuery.isLoading ? (
             <Text style={styles.helper}>Loading filament spools…</Text>
@@ -257,12 +259,18 @@ export default function InventoryFormScreen() {
           </View>
         </View>
 
-        <AppButton
-          title={isSubmitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create item'}
-          onPress={handleSubmit}
-          disabled={isSubmitting}
-        />
-        <AppButton title="Cancel" variant="ghost" onPress={() => navigation.goBack()} />
+        <View style={styles.actionFooter}>
+          <AppButton
+            title={isSubmitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create item'}
+            onPress={handleSubmit}
+            disabled={isSubmitting}
+          />
+          <AppButton
+            title="Cancel"
+            variant="ghost"
+            onPress={() => navigation.goBack()}
+          />
+        </View>
       </Card>
     </ScreenContainer>
   );
@@ -301,7 +309,7 @@ const styles = StyleSheet.create({
   },
   image: {
     width: '100%',
-    height: 200,
+    aspectRatio: 1,
     borderRadius: 16,
     backgroundColor: colors.surfaceSubtle,
   },
@@ -341,5 +349,15 @@ const styles = StyleSheet.create({
   },
   tagChip: {
     minWidth: 100,
+  },
+  formSectionSpacing: {
+    marginTop: spacing.lg,
+  },
+  actionFooter: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.xl,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: spacing.sm,
   },
 });

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import ScreenContainer from '../components/molecules/ScreenContainer';
 import SectionHeading from '../components/molecules/SectionHeading';
 import Card from '../components/atoms/Card';
@@ -21,6 +21,16 @@ export default function FilamentScreen() {
   const [search, setSearch] = useState('');
 
   const spoolsQuery = useQuery({ queryKey: ['filamentSpools'], queryFn: api.listFilamentSpools });
+
+  const deleteSpoolMutation = useMutation({
+    mutationFn: spoolId => api.deleteFilamentSpool(spoolId),
+    onSuccess: (_data, spoolId) => {
+      queryClient.invalidateQueries({ queryKey: ['filamentSpools'] });
+      queryClient.invalidateQueries({ queryKey: ['filamentSpool', spoolId] });
+      Alert.alert('Spool deleted');
+    },
+    onError: err => Alert.alert('Unable to delete spool', err?.message || 'Please try again.'),
+  });
 
   const onRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ['filamentSpools'] });
@@ -78,12 +88,26 @@ export default function FilamentScreen() {
 
       <Card>
         {spools.length ? (
-          spools.map(spool => (
+          spools.map((spool, index) => (
             <ListRow
               key={spool.id}
               title={[spool.material, spool.color, spool.brand].filter(Boolean).join(' • ') || `Spool #${spool.id}`}
               subtitle={spool.owner ? `Owner: ${spool.owner}` : 'Shared'}
               onPress={() => navigation.navigate('FilamentDetail', { spoolId: spool.id })}
+              onLongPress={() => {
+                Alert.alert(
+                  'Delete spool',
+                  `Remove ${[spool.material, spool.color, spool.brand].filter(Boolean).join(' • ') || 'this spool'}?`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: deleteSpoolMutation.isLoading ? 'Deleting…' : 'Delete',
+                      style: 'destructive',
+                      onPress: () => deleteSpoolMutation.mutate(spool.id),
+                    },
+                  ],
+                );
+              }}
               meta={(
                 <View style={styles.meta}>
                   <Text style={styles.metaText}>
@@ -97,6 +121,7 @@ export default function FilamentScreen() {
                   ) : null}
                 </View>
               )}
+              showDivider={index !== spools.length - 1}
             >
               {spool.notes ? <Text style={styles.note}>{spool.notes}</Text> : null}
             </ListRow>

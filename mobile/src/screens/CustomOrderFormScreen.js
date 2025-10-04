@@ -6,6 +6,7 @@ import ScreenContainer from '../components/molecules/ScreenContainer';
 import Card from '../components/atoms/Card';
 import SectionHeading from '../components/molecules/SectionHeading';
 import FormField from '../components/molecules/FormField';
+import DatePickerField from '../components/molecules/DatePickerField';
 import AppButton from '../components/atoms/AppButton';
 import LoadingState from '../components/molecules/LoadingState';
 import ErrorState from '../components/molecules/ErrorState';
@@ -127,14 +128,14 @@ export default function CustomOrderFormScreen() {
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer contentContainerStyle={{ paddingTop: spacing.lg }}>
       <SectionHeading title={isEdit ? 'Edit Order' : 'New Custom Order'} />
       <Card style={{ gap: spacing.md }}>
         <FormField
           label="Customer Name"
           value={customerName}
           onChangeText={setCustomerName}
-          placeholder="Customer name"
+          placeholder="John Doe"
         />
         <FormField
           label="Contact Info"
@@ -143,7 +144,7 @@ export default function CustomOrderFormScreen() {
           placeholder="Email, phone, handle…"
         />
 
-        <View style={{ gap: spacing.sm }}>
+        <View style={[{ gap: spacing.sm }, styles.sectionSpacing]}>
           <Text style={styles.label}>Source</Text>
           <View style={styles.chipRow}>
             {SOURCE_OPTIONS.map(option => (
@@ -159,7 +160,7 @@ export default function CustomOrderFormScreen() {
           </View>
         </View>
 
-        <View style={{ gap: spacing.sm }}>
+        <View style={[{ gap: spacing.sm }, styles.sectionSpacing, { marginBottom: spacing.sm }]}>
           <Text style={styles.label}>Status</Text>
           <View style={styles.chipRow}>
             {STATUS_OPTIONS.map(option => (
@@ -175,12 +176,7 @@ export default function CustomOrderFormScreen() {
           </View>
         </View>
 
-        <FormField
-          label="Due Date"
-          value={dueDate}
-          onChangeText={setDueDate}
-          placeholder="YYYY-MM-DD"
-        />
+        <DatePickerField label="Due Date" value={dueDate} onChange={setDueDate} allowClear />
 
         <FormField
           label="Request Details"
@@ -212,12 +208,18 @@ export default function CustomOrderFormScreen() {
           />
         </View>
 
-        <AppButton
-          title={isSubmitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create order'}
-          onPress={handleSubmit}
-          disabled={isSubmitting}
-        />
-        <AppButton title="Cancel" variant="ghost" onPress={() => navigation.goBack()} />
+        <View style={styles.actionFooter}>
+          <AppButton
+            title={isSubmitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create order'}
+            onPress={handleSubmit}
+            disabled={isSubmitting}
+          />
+          <AppButton
+            title="Cancel"
+            variant="ghost"
+            onPress={() => navigation.goBack()}
+          />
+        </View>
       </Card>
     </ScreenContainer>
   );
@@ -239,6 +241,16 @@ const styles = StyleSheet.create({
   },
   formRow: {
     flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  sectionSpacing: {
+    marginTop: spacing.lg,
+  },
+  actionFooter: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.xl,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
     gap: spacing.sm,
   },
 });

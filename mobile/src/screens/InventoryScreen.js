@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import ScreenContainer from '../components/molecules/ScreenContainer';
 import SectionHeading from '../components/molecules/SectionHeading';
 import Card from '../components/atoms/Card';
@@ -14,13 +14,35 @@ import { api } from '../api/client';
 import { formatCurrency } from '../utils/formatters';
 import { colors, spacing } from '../constants/theme';
 import AppButton from '../components/atoms/AppButton';
+import CollapsibleCard from '../components/molecules/CollapsibleCard';
+
+const SORT_OPTIONS = [
+  { value: 'name', label: 'Name (A-Z)' },
+  { value: 'quantity_desc', label: 'Quantity High-Low' },
+  { value: 'quantity_asc', label: 'Quantity Low-High' },
+  { value: 'price_desc', label: 'Price High-Low' },
+  { value: 'price_asc', label: 'Price Low-High' },
+];
 
 export default function InventoryScreen() {
   const queryClient = useQueryClient();
   const navigation = useNavigation();
   const [search, setSearch] = useState('');
+  const [sortOption, setSortOption] = useState('name');
 
   const itemsQuery = useQuery({ queryKey: ['items'], queryFn: api.getItems });
+
+  const deleteItemMutation = useMutation({
+    mutationFn: itemId => api.deleteItem(itemId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['items'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      Alert.alert('Item deleted');
+    },
+    onError: err => {
+      Alert.alert('Unable to delete item', err?.message || 'Please try again.');
+    },
+  });
 
   const onRefresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['items'] });
@@ -28,14 +50,50 @@ export default function InventoryScreen() {
   }, [queryClient, itemsQuery]);
 
   const items = useMemo(() => {
-    const source = itemsQuery.data;
-    if (!source) return [];
-    if (!search.trim()) return source;
+    const source = itemsQuery.data ?? [];
     const term = search.toLowerCase();
-    return source.filter(item => item.name?.toLowerCase().includes(term) || item.tag?.toLowerCase().includes(term));
-  }, [itemsQuery.data, search]);
+    const filtered = search.trim()
+      ? source.filter(item => item.name?.toLowerCase().includes(term) || item.tag?.toLowerCase().includes(term))
+      : source;
+
+    const sorted = [...filtered];
+    switch (sortOption) {
+      case 'quantity_desc':
+        sorted.sort((a, b) => (b.quantity ?? 0) - (a.quantity ?? 0));
+        break;
+      case 'quantity_asc':
+        sorted.sort((a, b) => (a.quantity ?? 0) - (b.quantity ?? 0));
+        break;
+      case 'price_desc':
+        sorted.sort((a, b) => (b.price ?? 0) - (a.price ?? 0));
+        break;
+      case 'price_asc':
+        sorted.sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
+        break;
+      case 'name':
+      default:
+        sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        break;
+    }
+    return sorted;
+  }, [itemsQuery.data, search, sortOption]);
 
   const lowStock = (itemsQuery.data ?? []).filter(item => item.quantity < 5);
+
+  const confirmDeleteItem = item => {
+    Alert.alert(
+      'Delete item',
+      `Remove ${item.name}? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => deleteItemMutation.mutate(item.id),
+        },
+      ],
+    );
+  };
 
   if (itemsQuery.isLoading || itemsQuery.isRefetching) {
     return (
@@ -68,6 +126,26 @@ export default function InventoryScreen() {
         />
       </Card>
 
+      <CollapsibleCard
+        title="Sort"
+        style={styles.sortCard}
+        contentStyle={styles.sortContent}
+      >
+        <Text style={styles.sortLabel}>Sort by</Text>
+        <View style={styles.sortRow}>
+          {SORT_OPTIONS.map(option => (
+            <AppButton
+              key={option.value}
+              title={option.label}
+              onPress={() => setSortOption(option.value)}
+              variant={sortOption === option.value ? 'primary' : 'secondary'}
+              style={styles.sortChip}
+              textStyle={{ fontSize: 12 }}
+            />
+          ))}
+        </View>
+      </CollapsibleCard>
+
       <SectionHeading
         title="Products"
         action={(
@@ -81,7 +159,7 @@ export default function InventoryScreen() {
       />
       <Card>
         {items.length ? (
-          items.map(item => (
+          items.map((item, index) => (
             <ListRow
               key={item.id}
               title={item.name}
@@ -96,12 +174,11 @@ export default function InventoryScreen() {
                 </View>
               }
               onPress={() => navigation.navigate('InventoryDetail', { itemId: item.id })}
+              onLongPress={() => confirmDeleteItem(item)}
+              showDivider={index !== items.length - 1}
             >
               <View style={styles.itemTagRow}>
                 {item.tag ? <Badge label={item.tag} /> : null}
-                {item.totalSold ? (
-                  <Text style={styles.itemMetaText}>Sold {item.totalSold} · Revenue {formatCurrency(item.totalRevenue)}</Text>
-                ) : null}
               </View>
             </ListRow>
           ))
@@ -138,6 +215,25 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginBottom: spacing.md,
   },
+  sortCard: {
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  sortContent: {
+    gap: spacing.sm,
+  },
+  sortLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  sortRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  sortChip: {
+    minWidth: 150,
+  },
   itemMeta: {
     alignItems: 'flex-end',
     gap: spacing.xs,
@@ -152,9 +248,5 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.sm,
     marginTop: spacing.xs,
-  },
-  itemMetaText: {
-    fontSize: 12,
-    color: colors.textMuted,
   },
 });

@@ -111,4 +111,13 @@ router.post('/:id/adjust', (req, res, next) => {
   }
 });
 
+router.delete('/:id', (req, res, next) => {
+  try {
+    inventoryService.deleteItem(Number(req.params.id));
+    res.status(204).end();
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;

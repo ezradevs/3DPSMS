@@ -6,12 +6,12 @@ import ScreenContainer from '../components/molecules/ScreenContainer';
 import SectionHeading from '../components/molecules/SectionHeading';
 import Card from '../components/atoms/Card';
 import FormField from '../components/molecules/FormField';
+import DatePickerField from '../components/molecules/DatePickerField';
 import AppButton from '../components/atoms/AppButton';
 import { api } from '../api/client';
 import { colors, spacing } from '../constants/theme';
 
 const PAYERS = ['Business', 'Ezra', 'Dylan'];
-const ASSIGNEES = ['', 'Ezra', 'Dylan'];
 const CATEGORIES = ['Market Stall', 'Filament', 'Plants', 'Display/Decor', 'Equipment', 'Other'];
 
 export default function ExpensesFormScreen() {
@@ -23,9 +23,8 @@ export default function ExpensesFormScreen() {
 
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('');
-  const [payer, setPayer] = useState('Business');
-  const [assignee, setAssignee] = useState('');
+  const [category, setCategory] = useState(null);
+  const [payer, setPayer] = useState(null);
   const [expenseDate, setExpenseDate] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -33,9 +32,8 @@ export default function ExpensesFormScreen() {
     if (isEdit) {
       setDescription(expense.description || '');
       setAmount(expense.amount != null ? String(expense.amount) : '');
-      setCategory(expense.category || '');
-      setPayer(expense.payer || 'Business');
-      setAssignee(expense.assignee || '');
+      setCategory(expense.category ?? null);
+      setPayer(expense.payer ?? null);
       setExpenseDate(expense.expenseDate ? expense.expenseDate.slice(0, 10) : '');
       setNotes(expense.notes || '');
     }
@@ -88,7 +86,6 @@ export default function ExpensesFormScreen() {
       amount: Number(amount),
       category: category || undefined,
       payer: payer || undefined,
-      assignee: assignee || undefined,
       expenseDate: expenseDate || undefined,
       notes: notes.trim() || undefined,
     };
@@ -116,7 +113,7 @@ export default function ExpensesFormScreen() {
   };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer contentContainerStyle={{ paddingTop: spacing.lg }}>
       <SectionHeading title={isEdit ? 'Edit Expense' : 'New Expense'} />
       <Card style={{ gap: spacing.md }}>
         <FormField
@@ -125,9 +122,11 @@ export default function ExpensesFormScreen() {
           onChangeText={setDescription}
           placeholder="Expense description"
         />
-        <FormField label="Amount" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0.00" />
+        <View style={styles.sectionSpacing}>
+          <FormField label="Amount" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0.00" />
+        </View>
 
-        <View style={{ gap: spacing.sm }}>
+        <View style={[{ gap: spacing.sm }, styles.sectionSpacing]}>
           <Text style={styles.label}>Category</Text>
           <View style={styles.chipRow}>
             {CATEGORIES.map(cat => (
@@ -135,22 +134,22 @@ export default function ExpensesFormScreen() {
                 key={cat}
                 title={cat}
                 variant={category === cat ? 'primary' : 'secondary'}
-                onPress={() => setCategory(cat === category ? '' : cat)}
+                onPress={() => setCategory(prev => (prev === cat ? null : cat))}
                 style={styles.chip}
                 textStyle={{ fontSize: 12 }}
               />
             ))}
             <AppButton
               title="None"
-              variant={category === '' ? 'primary' : 'secondary'}
-              onPress={() => setCategory('')}
+              variant={category == null ? 'primary' : 'secondary'}
+              onPress={() => setCategory(null)}
               style={styles.chip}
               textStyle={{ fontSize: 12 }}
             />
           </View>
         </View>
 
-        <View style={{ gap: spacing.sm }}>
+        <View style={[{ gap: spacing.sm }, styles.sectionSpacing]}>
           <Text style={styles.label}>Payer</Text>
           <View style={styles.chipRow}>
             {PAYERS.map(name => (
@@ -158,42 +157,45 @@ export default function ExpensesFormScreen() {
                 key={name}
                 title={name}
                 variant={payer === name ? 'primary' : 'secondary'}
-                onPress={() => setPayer(name)}
+                onPress={() => setPayer(prev => (prev === name ? null : name))}
                 style={styles.chip}
                 textStyle={{ fontSize: 12 }}
               />
             ))}
+            <AppButton
+              title="None"
+              variant={payer == null ? 'primary' : 'secondary'}
+              onPress={() => setPayer(null)}
+              style={styles.chip}
+              textStyle={{ fontSize: 12 }}
+            />
           </View>
         </View>
 
-        <View style={{ gap: spacing.sm }}>
-          <Text style={styles.label}>Assignee</Text>
-          <View style={styles.chipRow}>
-            {ASSIGNEES.map(name => (
-              <AppButton
-                key={name || 'none'}
-                title={name || 'None'}
-                variant={assignee === name ? 'primary' : 'secondary'}
-                onPress={() => setAssignee(name)}
-                style={styles.chip}
-                textStyle={{ fontSize: 12 }}
-              />
-            ))}
-          </View>
+        <View style={styles.sectionSpacing}>
+          <DatePickerField label="Date" value={expenseDate} onChange={setExpenseDate} allowClear />
+        </View>
+        <View style={styles.sectionSpacing}>
+          <FormField
+            label="Notes"
+            value={notes}
+            onChangeText={setNotes}
+            multiline
+            placeholder="Details, receipt numbers, etc."
+          />
         </View>
 
-        <FormField label="Date" value={expenseDate} onChangeText={setExpenseDate} placeholder="YYYY-MM-DD" />
-        <FormField label="Notes" value={notes} onChangeText={setNotes} multiline placeholder="Details, receipt numbers, etc." />
-
-        <AppButton
-          title={isSubmitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create expense'}
-          onPress={handleSubmit}
-          disabled={isSubmitting}
-        />
-        <AppButton title="Cancel" variant="ghost" onPress={() => navigation.goBack()} />
-        {isEdit ? (
-          <AppButton title="Delete expense" variant="danger" onPress={handleDelete} disabled={isSubmitting} />
-        ) : null}
+        <View style={styles.actionFooter}>
+          <AppButton
+            title={isSubmitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create expense'}
+            onPress={handleSubmit}
+            disabled={isSubmitting}
+          />
+          {isEdit ? (
+            <AppButton title="Delete expense" variant="danger" onPress={handleDelete} disabled={isSubmitting} />
+          ) : null}
+          <AppButton title="Cancel" variant="ghost" onPress={() => navigation.goBack()} />
+        </View>
       </Card>
     </ScreenContainer>
   );
@@ -212,5 +214,15 @@ const styles = StyleSheet.create({
   },
   chip: {
     minWidth: 100,
+  },
+  sectionSpacing: {
+    marginTop: spacing.lg,
+  },
+  actionFooter: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.xl,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: spacing.sm,
   },
 });

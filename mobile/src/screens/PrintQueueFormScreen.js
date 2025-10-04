@@ -6,6 +6,7 @@ import ScreenContainer from '../components/molecules/ScreenContainer';
 import Card from '../components/atoms/Card';
 import SectionHeading from '../components/molecules/SectionHeading';
 import FormField from '../components/molecules/FormField';
+import DatePickerField from '../components/molecules/DatePickerField';
 import AppButton from '../components/atoms/AppButton';
 import Badge from '../components/atoms/Badge';
 import LoadingState from '../components/molecules/LoadingState';
@@ -14,6 +15,7 @@ import { api, resolveUploadUrl } from '../api/client';
 import { colors, spacing } from '../constants/theme';
 
 const STATUS_OPTIONS = ['queued', 'printing', 'paused', 'completed', 'cancelled'];
+const ASSIGNEE_OPTIONS = ['Ezra', 'Dylan', 'Both'];
 
 export default function PrintQueueFormScreen() {
   const navigation = useNavigation();
@@ -27,7 +29,7 @@ export default function PrintQueueFormScreen() {
   const [itemName, setItemName] = useState('');
   const [filamentSpoolId, setFilamentSpoolId] = useState(null);
   const [quantity, setQuantity] = useState('1');
-  const [assignee, setAssignee] = useState('');
+  const [assignee, setAssignee] = useState(null);
   const [notes, setNotes] = useState('');
   const [modelUrl, setModelUrl] = useState('');
   const [status, setStatus] = useState('queued');
@@ -40,7 +42,7 @@ export default function PrintQueueFormScreen() {
       setItemName(job.itemName || '');
       setFilamentSpoolId(job.filamentSpoolId ?? null);
       setQuantity(job.quantity != null ? String(job.quantity) : '1');
-      setAssignee(job.assignee || '');
+      setAssignee(job.assignee ? job.assignee : null);
       setNotes(job.notes || '');
       setModelUrl(job.modelUrl || '');
       setStatus(job.status || 'queued');
@@ -113,7 +115,7 @@ export default function PrintQueueFormScreen() {
       itemName: itemName.trim(),
       filamentSpoolId: filamentSpoolId != null ? filamentSpoolId : '',
       quantity: quantityValue,
-      assignee: assignee.trim() || undefined,
+      assignee: assignee || undefined,
       notes: notes.trim() || undefined,
       modelUrl: modelUrl.trim() || undefined,
       status,
@@ -161,11 +163,11 @@ export default function PrintQueueFormScreen() {
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer contentContainerStyle={{ paddingTop: spacing.lg }}>
       <SectionHeading title={isEdit ? 'Edit Print Job' : 'New Print Job'} />
       <Card style={{ gap: spacing.md }}>
         <FormField label="Item name" value={itemName} onChangeText={setItemName} placeholder="e.g. articulated dragon" />
-        <View style={{ gap: spacing.sm }}>
+        <View style={[{ gap: spacing.sm }, styles.sectionSpacing]}>
           <Text style={styles.label}>Filament</Text>
           <View style={styles.chipRow}>
             <AppButton
@@ -188,7 +190,7 @@ export default function PrintQueueFormScreen() {
           </View>
         </View>
 
-        <View style={styles.formRow}>
+        <View style={[styles.formRow, styles.sectionSpacing]}>
           <FormField
             label="Quantity"
             value={quantity}
@@ -202,12 +204,26 @@ export default function PrintQueueFormScreen() {
             keyboardType="number-pad"
           />
         </View>
-        <FormField label="Assignee" value={assignee} onChangeText={setAssignee} placeholder="Printer or operator" />
+        <View style={[{ gap: spacing.sm }, styles.sectionSpacing]}>
+          <Text style={styles.label}>Assignee</Text>
+          <View style={styles.chipRow}>
+            {ASSIGNEE_OPTIONS.map(option => (
+              <AppButton
+                key={option}
+                title={option}
+                variant={assignee === option ? 'primary' : 'secondary'}
+                onPress={() => setAssignee(prev => (prev === option ? null : option))}
+                style={styles.chip}
+                textStyle={{ fontSize: 12 }}
+              />
+            ))}
+          </View>
+        </View>
         <FormField label="Notes" value={notes} onChangeText={setNotes} multiline placeholder="Settings, color swaps, warnings…" />
         <FormField label="Model link" value={modelUrl} onChangeText={setModelUrl} placeholder="https://" />
-        <FormField label="Due date" value={dueDate} onChangeText={setDueDate} placeholder="YYYY-MM-DD" />
+        <DatePickerField label="Due date" value={dueDate} onChange={setDueDate} allowClear />
 
-        <View style={{ gap: spacing.sm }}>
+        <View style={[{ gap: spacing.sm }, styles.sectionSpacing]}>
           <Text style={styles.label}>Status</Text>
           <View style={styles.chipRow}>
             {STATUS_OPTIONS.map(option => (
@@ -224,7 +240,7 @@ export default function PrintQueueFormScreen() {
         </View>
 
         {currentModelFile ? (
-          <View style={{ gap: spacing.xs }}>
+          <View style={[{ gap: spacing.xs }, styles.sectionSpacing]}>
             <Text style={styles.label}>Attached model</Text>
             <View style={styles.linkRow}>
               <Badge label="Existing file" variant="info" />
@@ -242,17 +258,22 @@ export default function PrintQueueFormScreen() {
           </View>
         ) : null}
 
-        <Text style={styles.helper}>Model file uploads from mobile are not yet supported; add a URL and upload the file on desktop if needed.</Text>
-
-        <AppButton
-          title={isSubmitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create job'}
-          onPress={handleSubmit}
-          disabled={isSubmitting}
-        />
-        <AppButton title="Cancel" variant="ghost" onPress={() => navigation.goBack()} />
-        {isEdit ? (
-          <AppButton title="Delete job" variant="danger" onPress={handleDelete} disabled={isSubmitting} />
-        ) : null}
+        <View style={styles.actionFooter}>
+          <AppButton
+            title={isSubmitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create job'}
+            onPress={handleSubmit}
+            disabled={isSubmitting}
+          />
+          {isEdit ? (
+            <AppButton
+              title="Delete job"
+              variant="danger"
+              onPress={handleDelete}
+              disabled={isSubmitting}
+            />
+          ) : null}
+          <AppButton title="Cancel" variant="ghost" onPress={() => navigation.goBack()} />
+        </View>
       </Card>
     </ScreenContainer>
   );
@@ -263,10 +284,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
-  },
-  helper: {
-    fontSize: 12,
-    color: colors.textMuted,
   },
   chipRow: {
     flexDirection: 'row',
@@ -283,6 +300,16 @@ const styles = StyleSheet.create({
   linkRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
+  },
+  sectionSpacing: {
+    marginTop: spacing.lg,
+  },
+  actionFooter: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.xl,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
     gap: spacing.sm,
   },
 });

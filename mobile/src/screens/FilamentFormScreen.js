@@ -6,13 +6,74 @@ import ScreenContainer from '../components/molecules/ScreenContainer';
 import SectionHeading from '../components/molecules/SectionHeading';
 import Card from '../components/atoms/Card';
 import FormField from '../components/molecules/FormField';
+import DatePickerField from '../components/molecules/DatePickerField';
 import AppButton from '../components/atoms/AppButton';
 import LoadingState from '../components/molecules/LoadingState';
 import ErrorState from '../components/molecules/ErrorState';
+import SelectField from '../components/molecules/SelectField';
 import { api } from '../api/client';
 import { colors, spacing } from '../constants/theme';
 
 const DRYNESS_OPTIONS = ['vacuum', 'sealed', 'open'];
+const CUSTOM_OPTION = '__custom__';
+
+const MATERIAL_OPTIONS = [
+  'PLA',
+  'PLA-CF',
+  'PLA Matte',
+  'PLA+',
+  'PLA-Lite',
+  'PLA Silk',
+  'PLA Galaxy',
+  'PETG',
+  'TPU',
+  CUSTOM_OPTION,
+].map(option => ({
+  label: option === CUSTOM_OPTION ? 'Custom' : option,
+  value: option === CUSTOM_OPTION ? CUSTOM_OPTION : option,
+}));
+
+const COLOR_OPTIONS = [
+  { label: 'None', value: '' },
+  'Black',
+  'White',
+  'Gray',
+  'Clear',
+  'Red',
+  'Blue',
+  'Green',
+  'Yellow',
+  'Purple',
+  'Orange',
+  'Pink',
+  'Silver',
+  'Gold',
+  'Copper',
+  'Rainbow',
+  CUSTOM_OPTION,
+].map(option => (typeof option === 'string'
+  ? { label: option === CUSTOM_OPTION ? 'Custom' : option, value: option === CUSTOM_OPTION ? CUSTOM_OPTION : option }
+  : option));
+
+const BRAND_OPTIONS = [
+  'Bambu Lab',
+  'Polymaker',
+  'eSUN',
+  'Sunlu',
+  'Overture',
+  'Prusament',
+  'Creality',
+  CUSTOM_OPTION,
+].map(option => (typeof option === 'string'
+  ? { label: option === CUSTOM_OPTION ? 'Custom' : option, value: option === CUSTOM_OPTION ? CUSTOM_OPTION : option }
+  : option));
+
+const OWNER_OPTIONS = [
+  { label: 'Ezra', value: 'Ezra' },
+  { label: 'Dylan', value: 'Dylan' },
+  { label: 'Shared', value: 'Shared' },
+  { label: 'Custom', value: CUSTOM_OPTION },
+];
 
 export default function FilamentFormScreen() {
   const navigation = useNavigation();
@@ -28,24 +89,44 @@ export default function FilamentFormScreen() {
   });
 
   const [material, setMaterial] = useState('');
+  const [materialCustom, setMaterialCustom] = useState('');
   const [color, setColor] = useState('');
+  const [colorCustom, setColorCustom] = useState('');
   const [brand, setBrand] = useState('');
+  const [brandCustom, setBrandCustom] = useState('');
   const [owner, setOwner] = useState('');
-  const [dryness, setDryness] = useState('');
+  const [ownerCustom, setOwnerCustom] = useState('');
+  const [dryness, setDryness] = useState(null);
   const [weightGrams, setWeightGrams] = useState('');
   const [remainingGrams, setRemainingGrams] = useState('');
   const [cost, setCost] = useState('');
   const [purchaseDate, setPurchaseDate] = useState('');
   const [notes, setNotes] = useState('');
 
+  const applyInitialOption = (value, options, setOption, setCustom) => {
+    if (!value) {
+      setOption('');
+      setCustom('');
+      return;
+    }
+    const match = options.find(opt => opt.value && opt.value !== CUSTOM_OPTION && opt.value.toLowerCase() === value.toLowerCase());
+    if (match) {
+      setOption(match.value);
+      setCustom('');
+    } else {
+      setOption(CUSTOM_OPTION);
+      setCustom(value);
+    }
+  };
+
   useEffect(() => {
     if (isEdit && spoolQuery.data) {
       const spool = spoolQuery.data;
-      setMaterial(spool.material || '');
-      setColor(spool.color || '');
-      setBrand(spool.brand || '');
-      setOwner(spool.owner || '');
-      setDryness(spool.dryness || '');
+      applyInitialOption(spool.material || '', MATERIAL_OPTIONS, setMaterial, setMaterialCustom);
+      applyInitialOption(spool.color || '', COLOR_OPTIONS, setColor, setColorCustom);
+      applyInitialOption(spool.brand || '', BRAND_OPTIONS, setBrand, setBrandCustom);
+      applyInitialOption(spool.owner || '', OWNER_OPTIONS, setOwner, setOwnerCustom);
+      setDryness(spool.dryness ?? null);
       setWeightGrams(spool.weightGrams != null ? String(spool.weightGrams) : '');
       setRemainingGrams(spool.remainingGrams != null ? String(spool.remainingGrams) : '');
       setCost(spool.cost != null ? String(spool.cost) : '');
@@ -78,16 +159,21 @@ export default function FilamentFormScreen() {
   const isSubmitting = createMutation.isLoading || updateMutation.isLoading;
 
   const handleSubmit = () => {
-    if (!material.trim()) {
+    const resolvedMaterial = material === CUSTOM_OPTION ? materialCustom.trim() : material.trim();
+    const resolvedColor = color === CUSTOM_OPTION ? colorCustom.trim() : color.trim();
+    const resolvedBrand = brand === CUSTOM_OPTION ? brandCustom.trim() : brand.trim();
+    const resolvedOwner = owner === CUSTOM_OPTION ? ownerCustom.trim() : owner.trim();
+
+    if (!resolvedMaterial) {
       Alert.alert('Material is required');
       return;
     }
 
     const payload = {
-      material: material.trim(),
-      color: color.trim() || undefined,
-      brand: brand.trim() || undefined,
-      owner: owner.trim() || undefined,
+      material: resolvedMaterial,
+      color: resolvedColor ? resolvedColor : undefined,
+      brand: resolvedBrand ? resolvedBrand : undefined,
+      owner: resolvedOwner ? resolvedOwner : undefined,
       dryness: dryness || undefined,
       weightGrams: weightGrams !== '' ? Number(weightGrams) : null,
       remainingGrams: remainingGrams !== '' ? Number(remainingGrams) : null,
@@ -138,15 +224,92 @@ export default function FilamentFormScreen() {
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer contentContainerStyle={{ paddingTop: spacing.lg }}>
       <SectionHeading title={isEdit ? 'Edit Spool' : 'New Filament Spool'} />
       <Card style={{ gap: spacing.md }}>
-        <FormField label="Material" value={material} onChangeText={setMaterial} placeholder="PLA, PETG…" />
-        <FormField label="Color" value={color} onChangeText={setColor} placeholder="Nebula Purple" />
-        <FormField label="Brand" value={brand} onChangeText={setBrand} placeholder="eSUN" />
-        <FormField label="Owner" value={owner} onChangeText={setOwner} placeholder="Ezra" />
+        <SelectField
+          label="Material"
+          placeholder="Select material"
+          options={MATERIAL_OPTIONS}
+          selectedValue={material}
+          onSelect={option => {
+            setMaterial(option.value);
+            if (option.value !== CUSTOM_OPTION) setMaterialCustom('');
+          }}
+        />
+        {material === CUSTOM_OPTION ? (
+          <FormField
+            label="Custom material"
+            value={materialCustom}
+            onChangeText={setMaterialCustom}
+            placeholder="PLA, PETG…"
+          />
+        ) : null}
 
-        <View style={{ gap: spacing.sm }}>
+        <SelectField
+          label="Color"
+          placeholder="Select color"
+          options={COLOR_OPTIONS}
+          selectedValue={color}
+          onSelect={option => {
+            setColor(option.value);
+            if (option.value !== CUSTOM_OPTION) setColorCustom('');
+          }}
+        />
+        {color === CUSTOM_OPTION ? (
+          <FormField
+            label="Custom color"
+            value={colorCustom}
+            onChangeText={setColorCustom}
+            placeholder="Nebula Purple"
+          />
+        ) : null}
+
+        <View style={styles.brandSection}>
+          <Text style={[styles.label, styles.brandLabelSpacing]}>Brand</Text>
+          <OptionChips
+            label={null}
+            options={BRAND_OPTIONS}
+            value={brand}
+            onSelect={value => {
+              setBrand(value);
+              if (value !== CUSTOM_OPTION) setBrandCustom('');
+            }}
+          />
+          {brand === CUSTOM_OPTION ? (
+            <FormField
+              label="Custom brand"
+              value={brandCustom}
+              onChangeText={setBrandCustom}
+              placeholder="eSUN"
+              style={styles.customFieldSpacing}
+            />
+          ) : null}
+        </View>
+
+        <View style={styles.ownerSection}>
+          <Text style={[styles.label, styles.ownerLabelSpacing]}>Owner</Text>
+          <OptionChips
+            label={null}
+            options={OWNER_OPTIONS}
+            value={owner}
+            onSelect={value => {
+              setOwner(value);
+              if (value !== CUSTOM_OPTION) setOwnerCustom('');
+            }}
+          />
+          {owner === CUSTOM_OPTION ? (
+            <FormField
+              label="Custom owner"
+              value={ownerCustom}
+              onChangeText={setOwnerCustom}
+              placeholder="Ezra"
+              style={styles.customFieldSpacing}
+            />
+          ) : null}
+        </View>
+
+        <View style={[{ gap: spacing.sm }, styles.sectionSpacing]}>
           <Text style={styles.label}>Dryness</Text>
           <View style={styles.chipRow}>
             {DRYNESS_OPTIONS.map(option => (
@@ -169,19 +332,23 @@ export default function FilamentFormScreen() {
           </View>
         </View>
 
-        <View style={styles.formRow}>
-          <FormField
-            label="Weight (g)"
-            value={weightGrams}
-            onChangeText={setWeightGrams}
-            keyboardType="numeric"
-          />
-          <FormField
-            label="Remaining (g)"
-            value={remainingGrams}
-            onChangeText={setRemainingGrams}
-            keyboardType="numeric"
-          />
+        <View style={[styles.formRow, styles.weightRow]}>
+          <View style={{ flex: 1 }}>
+            <FormField
+              label="Weight (g)"
+              value={weightGrams}
+              onChangeText={setWeightGrams}
+              keyboardType="numeric"
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <FormField
+              label="Remaining (g)"
+              value={remainingGrams}
+              onChangeText={setRemainingGrams}
+              keyboardType="numeric"
+            />
+          </View>
         </View>
         <FormField
           label="Cost"
@@ -190,28 +357,61 @@ export default function FilamentFormScreen() {
           keyboardType="decimal-pad"
           placeholder="0.00"
         />
-        <FormField
+        <DatePickerField
           label="Purchase Date"
           value={purchaseDate}
-          onChangeText={setPurchaseDate}
-          placeholder="YYYY-MM-DD"
+          onChange={setPurchaseDate}
+          allowClear
+          style={styles.fieldWithSpacing}
         />
+
         <FormField
           label="Notes"
           value={notes}
           onChangeText={setNotes}
           multiline
           placeholder="Preferred settings, humidity, etc."
+          style={styles.fieldWithSpacing}
         />
 
-        <AppButton
-          title={isSubmitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create spool'}
-          onPress={handleSubmit}
-          disabled={isSubmitting}
-        />
-        <AppButton title="Cancel" variant="ghost" onPress={() => navigation.goBack()} />
+        <View style={styles.actionFooter}>
+          <AppButton
+            title={isSubmitting ? 'Saving…' : isEdit ? 'Save changes' : 'Create spool'}
+            onPress={handleSubmit}
+            disabled={isSubmitting}
+          />
+          <AppButton
+            title="Cancel"
+            variant="ghost"
+            onPress={() => navigation.goBack()}
+          />
+        </View>
       </Card>
     </ScreenContainer>
+  );
+}
+
+function OptionChips({ label, options, value, onSelect }) {
+  return (
+    <View style={styles.optionGroup}>
+      {label ? <Text style={styles.label}>{label}</Text> : null}
+      <View style={styles.chipRow}>
+        {options.map(option => {
+          const optionValue = typeof option === 'string' ? option : option.value;
+          const optionLabel = typeof option === 'string' ? option : option.label;
+          return (
+            <AppButton
+              key={optionValue}
+              title={optionLabel}
+              onPress={() => onSelect(optionValue)}
+              variant={value === optionValue ? 'primary' : 'secondary'}
+              style={styles.chip}
+              textStyle={{ fontSize: 12 }}
+            />
+          );
+        })}
+      </View>
+    </View>
   );
 }
 
@@ -220,6 +420,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
+  },
+  optionGroup: {
+    gap: spacing.xs,
   },
   chipRow: {
     flexDirection: 'row',
@@ -232,5 +435,37 @@ const styles = StyleSheet.create({
   formRow: {
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+  weightRow: {
+    marginTop: spacing.md,
+  },
+  fieldWithSpacing: {
+    marginTop: spacing.md,
+  },
+  customFieldSpacing: {
+    marginTop: spacing.md + spacing.xs,
+  },
+  actionFooter: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.xl,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: spacing.sm,
+  },
+  brandSection: {
+    marginTop: spacing.sm,
+  },
+  ownerSection: {
+    marginTop: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  brandLabelSpacing: {
+    marginBottom: spacing.sm,
+  },
+  ownerLabelSpacing: {
+    marginBottom: spacing.sm,
+  },
+  sectionSpacing: {
+    marginTop: spacing.xs / 3,
   },
 });

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import ScreenContainer from '../components/molecules/ScreenContainer';
 import SectionHeading from '../components/molecules/SectionHeading';
 import Card from '../components/atoms/Card';
@@ -14,6 +14,7 @@ import EmptyState from '../components/molecules/EmptyState';
 import { api } from '../api/client';
 import { formatDate } from '../utils/formatters';
 import { colors, spacing } from '../constants/theme';
+import CollapsibleCard from '../components/molecules/CollapsibleCard';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All' },
@@ -44,6 +45,15 @@ export default function PrintQueueScreen() {
       status: statusFilter || undefined,
       assignee: assigneeFilter || undefined,
     }),
+  });
+
+  const deleteJobMutation = useMutation({
+    mutationFn: jobId => api.deletePrintJob(jobId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['printQueue'] });
+      Alert.alert('Print job deleted');
+    },
+    onError: err => Alert.alert('Unable to delete job', err?.message || 'Please try again.'),
   });
 
   const jobs = jobsQuery.data ?? [];
@@ -82,7 +92,12 @@ export default function PrintQueueScreen() {
       <Text style={styles.title}>Print Queue</Text>
       <Text style={styles.subtitle}>{jobs.length} jobs</Text>
 
-      <Card style={[styles.filterCard, { gap: spacing.md }]}>
+      <CollapsibleCard
+        title="Filters"
+        style={styles.filterCard}
+        contentStyle={styles.filterContent}
+        defaultCollapsed
+      >
         <View style={styles.filterGroup}>
           <Text style={styles.filterLabel}>Status</Text>
           <View style={styles.filterRow}>
@@ -121,7 +136,7 @@ export default function PrintQueueScreen() {
             ))}
           </View>
         </View>
-      </Card>
+      </CollapsibleCard>
 
       <SectionHeading
         title="Queue"
@@ -130,7 +145,7 @@ export default function PrintQueueScreen() {
 
       <Card>
         {jobs.length ? (
-          jobs.map(job => (
+          jobs.map((job, index) => (
             <ListRow
               key={job.id}
               title={job.itemName}
@@ -148,6 +163,21 @@ export default function PrintQueueScreen() {
                 </View>
               }
               onPress={() => navigation.navigate('PrintQueueForm', { mode: 'edit', job })}
+              onLongPress={() => {
+                Alert.alert(
+                  'Delete job',
+                  `Remove the print job for ${job.itemName}?`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: deleteJobMutation.isLoading ? 'Deleting…' : 'Delete',
+                      style: 'destructive',
+                      onPress: () => deleteJobMutation.mutate(job.id),
+                    },
+                  ],
+                );
+              }}
+              showDivider={index !== jobs.length - 1}
             >
               {job.assignee ? <Text style={styles.metaText}>Assigned to {job.assignee}</Text> : null}
             </ListRow>
@@ -186,6 +216,12 @@ const styles = StyleSheet.create({
   filterChip: {
     minWidth: 90,
   },
+  filterCard: {
+    marginBottom: spacing.md,
+  },
+  filterContent: {
+    gap: spacing.md,
+  },
   rowMeta: {
     alignItems: 'flex-end',
     gap: spacing.xs,
@@ -193,8 +229,5 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 12,
     color: colors.textMuted,
-  },
-  filterCard: {
-    marginBottom: spacing.md,
   },
 });

@@ -2,12 +2,29 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { colors, spacing } from '../../constants/theme';
 
-export default function ListRow({ title, subtitle, meta, children, style, onPress }) {
-  if (onPress) {
+export default function ListRow({
+  title,
+  subtitle,
+  meta,
+  children,
+  style,
+  onPress,
+  onLongPress,
+  showDivider = true,
+  longPressDelay = 400,
+}) {
+  if (onPress || onLongPress) {
     return (
       <Pressable
         onPress={onPress}
-        style={({ pressed }) => [styles.row, style, pressed && styles.pressed]}
+        onLongPress={onLongPress}
+        delayLongPress={longPressDelay}
+        style={({ pressed }) => [
+          styles.row,
+          !showDivider && styles.rowNoDivider,
+          style,
+          pressed && styles.pressed,
+        ]}
       >
         <RowContent title={title} subtitle={subtitle} meta={meta}>
           {children}
@@ -17,7 +34,7 @@ export default function ListRow({ title, subtitle, meta, children, style, onPres
   }
 
   return (
-    <View style={[styles.row, style]}>
+    <View style={[styles.row, !showDivider && styles.rowNoDivider, style]}>
       <RowContent title={title} subtitle={subtitle} meta={meta}>
         {children}
       </RowContent>
@@ -46,6 +63,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
+  },
+  rowNoDivider: {
+    borderBottomWidth: 0,
   },
   pressed: {
     backgroundColor: colors.surfaceSubtle,

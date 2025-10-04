@@ -180,6 +180,15 @@ function listUsage(spoolId) {
   }));
 }
 
+function deleteSpool(id) {
+  const db = getDb();
+  const existing = db.prepare('SELECT id FROM filament_spools WHERE id = ?').get(id);
+  if (!existing) {
+    throw Object.assign(new Error('Spool not found'), { status: 404 });
+  }
+  db.prepare('DELETE FROM filament_spools WHERE id = ?').run(id);
+}
+
 module.exports = {
   listSpools,
   getSpoolById,
@@ -187,4 +196,5 @@ module.exports = {
   updateSpool,
   logUsage,
   listUsage,
+  deleteSpool,
 };

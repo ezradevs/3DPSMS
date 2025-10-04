@@ -1,10 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import ScreenContainer from '../components/molecules/ScreenContainer';
 import SectionHeading from '../components/molecules/SectionHeading';
-import Card from '../components/atoms/Card';
 import ListRow from '../components/molecules/ListRow';
 import Badge from '../components/atoms/Badge';
 import AppButton from '../components/atoms/AppButton';
@@ -14,6 +13,8 @@ import ErrorState from '../components/molecules/ErrorState';
 import { api } from '../api/client';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { colors, spacing } from '../constants/theme';
+import Card from '../components/atoms/Card';
+import CollapsibleCard from '../components/molecules/CollapsibleCard';
 
 const PAYERS = ['', 'Business', 'Ezra', 'Dylan'];
 const CATEGORIES = ['', 'Market Stall', 'Filament', 'Plants', 'Display/Decor', 'Equipment', 'Other'];
@@ -35,6 +36,15 @@ export default function ExpensesScreen() {
   const expenses = useMemo(() => expensesQuery.data ?? [], [expensesQuery.data]);
 
   const totalAmount = expenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+
+  const deleteExpenseMutation = useMutation({
+    mutationFn: expenseId => api.deleteExpense(expenseId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      Alert.alert('Expense deleted');
+    },
+    onError: err => Alert.alert('Unable to delete expense', err?.message || 'Please try again.'),
+  });
 
   const onRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ['expenses'] });
@@ -64,7 +74,12 @@ export default function ExpensesScreen() {
         {expenses.length} entries · {formatCurrency(totalAmount)} total
       </Text>
 
-      <Card style={[styles.filterCard, { gap: spacing.md }]}>
+      <CollapsibleCard
+        title="Filters"
+        style={styles.filterCard}
+        contentStyle={styles.filterContent}
+        defaultCollapsed
+      >
         <View style={styles.filterGroup}>
           <Text style={styles.filterLabel}>Payer</Text>
           <View style={styles.filterRow}>
@@ -96,7 +111,7 @@ export default function ExpensesScreen() {
             ))}
           </View>
         </View>
-      </Card>
+      </CollapsibleCard>
 
       <SectionHeading
         title="Entries"
@@ -106,7 +121,7 @@ export default function ExpensesScreen() {
 
       <Card>
         {expenses.length ? (
-          expenses.map(expense => (
+          expenses.map((expense, index) => (
             <ListRow
               key={expense.id}
               title={expense.description}
@@ -119,8 +134,23 @@ export default function ExpensesScreen() {
                   {expense.category ? <Badge label={expense.category} variant="info" /> : null}
                 </View>
               }
+              onLongPress={() => {
+                Alert.alert(
+                  'Delete expense',
+                  `Remove expense “${expense.description}”?`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: deleteExpenseMutation.isLoading ? 'Deleting…' : 'Delete',
+                      style: 'destructive',
+                      onPress: () => deleteExpenseMutation.mutate(expense.id),
+                    },
+                  ],
+                );
+              }}
+              showDivider={index !== expenses.length - 1}
             >
-              <Text style={styles.metaText}>Payer: {expense.payer || '—'} · Assignee: {expense.assignee || '—'}</Text>
+              <Text style={styles.metaText}>Payer: {expense.payer || '—'}</Text>
             </ListRow>
           ))
         ) : (
@@ -156,6 +186,9 @@ const styles = StyleSheet.create({
   },
   filterCard: {
     marginBottom: spacing.md,
+  },
+  filterContent: {
+    gap: spacing.md,
   },
   filterChip: {
     minWidth: 100,

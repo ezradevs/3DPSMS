@@ -182,6 +182,20 @@ function adjustQuantity({ itemId, delta, reason = 'manual', referenceType = null
   return getItemById(itemId);
 }
 
+function deleteItem(id) {
+  const db = getDb();
+  const existing = db.prepare('SELECT image_path FROM items WHERE id = ?').get(id);
+  if (!existing) {
+    throw Object.assign(new Error('Item not found'), { status: 404 });
+  }
+
+  db.prepare('DELETE FROM items WHERE id = ?').run(id);
+
+  if (existing.image_path) {
+    deleteFileSafe(existing.image_path);
+  }
+}
+
 function getLowStockItems(threshold = 5) {
   const db = getDb();
   const stmt = db.prepare(`
@@ -207,5 +221,6 @@ module.exports = {
   createItem,
   updateItem,
   adjustQuantity,
+  deleteItem,
   getLowStockItems,
 };

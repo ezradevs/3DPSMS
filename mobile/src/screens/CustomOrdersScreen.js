@@ -1,16 +1,17 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import ScreenContainer from '../components/molecules/ScreenContainer';
 import SectionHeading from '../components/molecules/SectionHeading';
-import Card from '../components/atoms/Card';
 import ListRow from '../components/molecules/ListRow';
 import Badge from '../components/atoms/Badge';
 import AppButton from '../components/atoms/AppButton';
 import EmptyState from '../components/molecules/EmptyState';
 import LoadingState from '../components/molecules/LoadingState';
 import ErrorState from '../components/molecules/ErrorState';
+import Card from '../components/atoms/Card';
+import CollapsibleCard from '../components/molecules/CollapsibleCard';
 import { api } from '../api/client';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { colors, spacing } from '../constants/theme';
@@ -40,6 +41,16 @@ export default function CustomOrdersScreen() {
   const ordersQuery = useQuery({
     queryKey: ['customOrders', statusFilter],
     queryFn: () => api.listCustomOrders(statusFilter ? { status: statusFilter } : {}),
+  });
+
+  const deleteOrderMutation = useMutation({
+    mutationFn: orderId => api.deleteCustomOrder(orderId),
+    onSuccess: (_data, orderId) => {
+      queryClient.invalidateQueries({ queryKey: ['customOrders'] });
+      queryClient.invalidateQueries({ queryKey: ['customOrder', orderId] });
+      Alert.alert('Order deleted');
+    },
+    onError: err => Alert.alert('Unable to delete order', err?.message || 'Please try again.'),
   });
 
   const onRefresh = () => {
@@ -73,21 +84,28 @@ export default function CustomOrdersScreen() {
       <Text style={styles.title}>Custom Orders</Text>
       <Text style={styles.subtitle}>{orders.length} orders</Text>
 
-      <Card style={styles.filterCard}>
-        <Text style={styles.filterLabel}>Filter by status</Text>
-        <View style={styles.filterRow}>
-          {STATUS_OPTIONS.map(option => (
-            <AppButton
-              key={option.value}
-              title={option.label}
-              variant={statusFilter === option.value ? 'primary' : 'secondary'}
-              onPress={() => setStatusFilter(option.value)}
-              style={styles.filterChip}
-              textStyle={{ fontSize: 12 }}
-            />
-          ))}
+      <CollapsibleCard
+        title="Filters"
+        style={styles.filterCard}
+        contentStyle={styles.filterContent}
+        defaultCollapsed
+      >
+        <View>
+          <Text style={styles.filterLabel}>Filter by status</Text>
+          <View style={styles.filterRow}>
+            {STATUS_OPTIONS.map(option => (
+              <AppButton
+                key={option.value}
+                title={option.label}
+                variant={statusFilter === option.value ? 'primary' : 'secondary'}
+                onPress={() => setStatusFilter(option.value)}
+                style={styles.filterChip}
+                textStyle={{ fontSize: 12 }}
+              />
+            ))}
+          </View>
         </View>
-      </Card>
+      </CollapsibleCard>
 
       <SectionHeading
         title="Orders"
@@ -97,7 +115,7 @@ export default function CustomOrdersScreen() {
 
       <Card>
         {orders.length ? (
-          orders.map(order => (
+          orders.map((order, index) => (
             <ListRow
               key={order.id}
               title={order.customerName}
@@ -119,6 +137,21 @@ export default function CustomOrdersScreen() {
                 </View>
               }
               onPress={() => navigation.navigate('OrderDetail', { orderId: order.id })}
+              onLongPress={() => {
+                Alert.alert(
+                  'Delete order',
+                  `Remove the order for ${order.customerName}?`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: deleteOrderMutation.isLoading ? 'Deleting…' : 'Delete',
+                      style: 'destructive',
+                      onPress: () => deleteOrderMutation.mutate(order.id),
+                    },
+                  ],
+                );
+              }}
+              showDivider={index !== orders.length - 1}
             />
           ))
         ) : (
@@ -143,6 +176,7 @@ const styles = StyleSheet.create({
   filterLabel: {
     fontSize: 14,
     color: colors.textSecondary,
+    marginBottom: spacing.sm,
   },
   filterRow: {
     flexDirection: 'row',
@@ -150,8 +184,10 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   filterCard: {
-    gap: spacing.sm,
     marginBottom: spacing.md,
+  },
+  filterContent: {
+    gap: spacing.md,
   },
   filterChip: {
     minWidth: 90,

@@ -80,7 +80,7 @@ export default function CustomOrderDetailScreen() {
   };
 
   return (
-    <ScreenContainer>
+    <ScreenContainer contentContainerStyle={{ paddingTop: spacing.lg }}>
       <SectionHeading
         title={order.customerName}
         action={<AppButton title="Edit" variant="secondary" onPress={() => navigation.navigate('OrderForm', { mode: 'edit', orderId })} />}
@@ -127,7 +127,7 @@ export default function CustomOrderDetailScreen() {
         </View>
       </Card>
 
-      <SectionHeading title="Update status" />
+      <SectionHeading title="Update status" style={{ marginTop: spacing.xl, marginBottom: spacing.lg }} />
       <Card>
         <View style={styles.statusRow}>
           {STATUS_OPTIONS.map(status => (

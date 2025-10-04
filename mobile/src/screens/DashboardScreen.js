@@ -1,5 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, Alert } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -13,11 +14,13 @@ import Badge from '../components/atoms/Badge';
 import EmptyState from '../components/molecules/EmptyState';
 import LoadingState from '../components/molecules/LoadingState';
 import ErrorState from '../components/molecules/ErrorState';
+import AppButton from '../components/atoms/AppButton';
 import { colors, spacing } from '../constants/theme';
 
 const BANNER_IMAGE_KEY = '@dashboard_banner_image';
 
 export default function DashboardScreen() {
+  const navigation = useNavigation();
   const queryClient = useQueryClient();
   const [bannerImage, setBannerImage] = useState(null);
 
@@ -100,9 +103,28 @@ export default function DashboardScreen() {
   const sevenDayRevenue = recentTrend.reduce((sum, day) => sum + (day.totalRevenue || 0), 0);
   const sevenDayItems = recentTrend.reduce((sum, day) => sum + (day.totalItems || 0), 0);
 
+  const quickActions = [
+    {
+      label: 'Record Sale',
+      onPress: () => navigation.navigate('Sales', { screen: 'SalesHome' }),
+    },
+    {
+      label: 'Add Inventory Item',
+      onPress: () => navigation.navigate('Inventory', { screen: 'InventoryForm', params: { mode: 'create' } }),
+    },
+    {
+      label: 'New Custom Order',
+      onPress: () => navigation.navigate('Operations', { screen: 'OrderForm', params: { mode: 'create' } }),
+    },
+    {
+      label: 'Add Print Job',
+      onPress: () => navigation.navigate('Operations', { screen: 'PrintQueueForm', params: { mode: 'create' } }),
+    },
+  ];
+
   return (
     <ScreenContainer onRefresh={onRefresh} refreshing={isRefetching}>
-      <Text style={styles.title}>Dashboard</Text>
+      <Text style={styles.title}>3D Print Stall Dashboard</Text>
       <Text style={styles.subtitle}>Your stall at a glance.</Text>
 
       <TouchableOpacity onPress={pickImage} activeOpacity={0.8}>
@@ -139,17 +161,34 @@ export default function DashboardScreen() {
         <View>
           <Text style={styles.sectionLabel}>Latest Sales</Text>
           {today?.latestSales?.length ? (
-            today.latestSales.map(sale => (
+            today.latestSales.map((sale, index, array) => (
               <ListRow
                 key={sale.id}
                 title={`${sale.quantity} × ${sale.itemName}`}
                 subtitle={formatDateTime(sale.soldAt)}
                 meta={<Text style={styles.listValue}>{formatCurrency(sale.totalPrice)}</Text>}
+                showDivider={index !== array.length - 1}
               />
             ))
           ) : (
             <EmptyState message="No sales yet for the active session." />
           )}
+        </View>
+      </Card>
+
+      <SectionHeading title="Quick actions" style={{ marginTop: spacing.lg }} />
+      <Card>
+        <View style={styles.quickActionsGrid}>
+          {quickActions.map(action => (
+            <AppButton
+              key={action.label}
+              title={action.label}
+              variant="secondary"
+              onPress={action.onPress}
+              style={styles.quickActionButton}
+              textStyle={styles.quickActionText}
+            />
+          ))}
         </View>
       </Card>
 
@@ -160,7 +199,7 @@ export default function DashboardScreen() {
           <HeroStat label="Items" value={sevenDayItems} compact />
         </View>
         {recentTrend.length ? (
-          recentTrend.map(day => (
+          recentTrend.map((day, index) => (
             <ListRow
               key={day.date}
               title={formatDate(day.date)}
@@ -170,6 +209,7 @@ export default function DashboardScreen() {
                   <Text style={styles.listMeta}>{day.totalItems} items</Text>
                 </View>
               }
+              showDivider={index !== recentTrend.length - 1}
             />
           ))
         ) : (
@@ -180,12 +220,13 @@ export default function DashboardScreen() {
       <SectionHeading title="Low Stock" style={{ marginTop: spacing.xl }} />
       <Card>
         {lowStock.length ? (
-          lowStock.map(item => (
+          lowStock.map((item, index) => (
             <ListRow
               key={item.id}
               title={item.name}
               subtitle={formatCurrency(item.price)}
               meta={<Badge label={`${item.quantity} left`} variant={item.quantity === 0 ? 'danger' : 'warning'} />}
+              showDivider={index !== lowStock.length - 1}
             />
           ))
         ) : (
@@ -196,7 +237,7 @@ export default function DashboardScreen() {
       <SectionHeading title="Recent Sales" style={{ marginTop: spacing.xl }} />
       <Card>
         {recentSales.length ? (
-          recentSales.map(sale => (
+          recentSales.map((sale, index) => (
             <ListRow
               key={sale.id}
               title={`${sale.quantity} × ${sale.itemName}`}
@@ -207,6 +248,7 @@ export default function DashboardScreen() {
                   <Text style={styles.listMeta}>{formatDateTime(sale.soldAt)}</Text>
                 </View>
               }
+              showDivider={index !== recentSales.length - 1}
             />
           ))
         ) : (
@@ -310,5 +352,17 @@ const styles = StyleSheet.create({
   bannerPlaceholderText: {
     fontSize: 14,
     color: colors.textSecondary,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  quickActionButton: {
+    flexGrow: 1,
+    minWidth: '45%',
+  },
+  quickActionText: {
+    fontSize: 14,
   },
 });

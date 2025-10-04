@@ -1,26 +1,25 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, Alert } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, Image, Alert, Pressable } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import ScreenContainer from '../components/molecules/ScreenContainer';
 import Card from '../components/atoms/Card';
 import SectionHeading from '../components/molecules/SectionHeading';
 import Badge from '../components/atoms/Badge';
-import FormField from '../components/molecules/FormField';
 import AppButton from '../components/atoms/AppButton';
 import LoadingState from '../components/molecules/LoadingState';
 import ErrorState from '../components/molecules/ErrorState';
 import EmptyState from '../components/molecules/EmptyState';
 import { api, resolveUploadUrl } from '../api/client';
 import { formatCurrency, formatDateTime } from '../utils/formatters';
-import { colors, spacing } from '../constants/theme';
+import { colors, spacing, radii } from '../constants/theme';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 export default function InventoryDetailScreen() {
   const route = useRoute();
   const navigation = useNavigation();
   const queryClient = useQueryClient();
   const { itemId } = route.params;
-  const [adjustAmount, setAdjustAmount] = useState('1');
 
   const itemQuery = useQuery({
     queryKey: ['item', itemId],
@@ -33,14 +32,26 @@ export default function InventoryDetailScreen() {
       reason: delta > 0 ? 'mobile_restock' : 'mobile_adjustment',
     }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['item', itemId] });
+    queryClient.invalidateQueries({ queryKey: ['item', itemId] });
+    queryClient.invalidateQueries({ queryKey: ['items'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    Alert.alert('Stock updated');
+  },
+  onError: err => {
+    Alert.alert('Unable to adjust stock', err.message || 'Please try again.');
+  },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.deleteItem(itemId),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['items'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      Alert.alert('Stock updated');
-      setAdjustAmount('1');
+      Alert.alert('Item deleted');
+      navigation.goBack();
     },
     onError: err => {
-      Alert.alert('Unable to adjust stock', err.message || 'Please try again.');
+      Alert.alert('Unable to delete item', err?.message || 'Please try again.');
     },
   });
 
@@ -80,12 +91,7 @@ export default function InventoryDetailScreen() {
     navigation.navigate('InventoryForm', { mode: 'edit', itemId });
   };
 
-  const handleAdjust = () => {
-    const delta = Number(adjustAmount);
-    if (!Number.isInteger(delta) || delta === 0) {
-      Alert.alert('Enter a non-zero whole number.');
-      return;
-    }
+  const handleAdjustDelta = delta => {
     adjustMutation.mutate(delta);
   };
 
@@ -93,7 +99,34 @@ export default function InventoryDetailScreen() {
     <ScreenContainer inset={false} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
       <SectionHeading
         title={item.name}
-        action={<AppButton title="Edit" variant="secondary" onPress={handleEdit} />}
+        action={(
+          <>
+            <AppButton
+              title="Edit"
+              variant="secondary"
+              onPress={handleEdit}
+            />
+            <AppButton
+              title="Delete"
+              variant="danger"
+              onPress={() => {
+                Alert.alert(
+                  'Delete item',
+                  `Remove ${item.name}? This cannot be undone.`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: deleteMutation.isLoading ? 'Deleting…' : 'Delete',
+                      style: 'destructive',
+                      onPress: () => deleteMutation.mutate(),
+                    },
+                  ],
+                );
+              }}
+              disabled={deleteMutation.isLoading}
+            />
+          </>
+        )}
         style={{ marginBottom: spacing.md }}
       />
       <Card style={{ gap: spacing.md }}>
@@ -125,21 +158,43 @@ export default function InventoryDetailScreen() {
 
       <SectionHeading title="Adjust stock" style={{ marginTop: spacing.xl }} />
       <Card style={{ gap: spacing.md }}>
-        <FormField
-          label="Adjustment"
-          value={adjustAmount}
-          onChangeText={setAdjustAmount}
-          keyboardType="number-pad"
-          placeholder="Enter positive or negative quantity"
-        />
+        <View style={styles.adjustSummary}>
+          <Text style={styles.sectionLabel}>On hand</Text>
+          <Text style={styles.adjustQuantity}>{item.quantity}</Text>
+        </View>
+        <View style={styles.adjustRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Decrease stock"
+            onPress={() => handleAdjustDelta(-1)}
+            disabled={adjustMutation.isLoading}
+            style={({ pressed }) => [
+              styles.adjustButton,
+              styles.adjustButtonDecrease,
+              adjustMutation.isLoading && styles.adjustButtonDisabled,
+              pressed && !adjustMutation.isLoading ? styles.adjustButtonPressed : null,
+            ]}
+          >
+            <Ionicons name="arrow-down" size={20} color="#fff" />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Increase stock"
+            onPress={() => handleAdjustDelta(1)}
+            disabled={adjustMutation.isLoading}
+            style={({ pressed }) => [
+              styles.adjustButton,
+              styles.adjustButtonIncrease,
+              adjustMutation.isLoading && styles.adjustButtonDisabled,
+              pressed && !adjustMutation.isLoading ? styles.adjustButtonPressed : null,
+            ]}
+          >
+            <Ionicons name="arrow-up" size={20} color="#fff" />
+          </Pressable>
+        </View>
         <Text style={styles.helper}>
-          Positive numbers add stock (finished prints). Negative numbers remove stock for damages or losses.
+          Tap arrows to increase or decrease by one. Use the edit screen for larger adjustments.
         </Text>
-        <AppButton
-          title={adjustMutation.isLoading ? 'Updating…' : 'Apply adjustment'}
-          onPress={handleAdjust}
-          disabled={adjustMutation.isLoading}
-        />
       </Card>
     </ScreenContainer>
   );
@@ -157,7 +212,7 @@ function SummaryTile({ label, value, small = false }) {
 const styles = StyleSheet.create({
   image: {
     width: '100%',
-    height: 200,
+    aspectRatio: 1,
     borderRadius: 16,
     backgroundColor: colors.surfaceSubtle,
   },
@@ -207,5 +262,45 @@ const styles = StyleSheet.create({
   helper: {
     fontSize: 12,
     color: colors.textMuted,
+  },
+  adjustSummary: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  adjustQuantity: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  adjustRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.lg,
+  },
+  adjustButton: {
+    width: 56,
+    height: 56,
+    borderRadius: radii.pill,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  adjustButtonDecrease: {
+    backgroundColor: colors.danger,
+  },
+  adjustButtonIncrease: {
+    backgroundColor: colors.primary,
+  },
+  adjustButtonDisabled: {
+    opacity: 0.5,
+  },
+  adjustButtonPressed: {
+    transform: [{ scale: 0.95 }],
   },
 });

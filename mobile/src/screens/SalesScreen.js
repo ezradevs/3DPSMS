@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
+import Slider from '@react-native-community/slider';
 import ScreenContainer from '../components/molecules/ScreenContainer';
 import SectionHeading from '../components/molecules/SectionHeading';
 import Card from '../components/atoms/Card';
@@ -13,6 +14,8 @@ import EmptyState from '../components/molecules/EmptyState';
 import LoadingState from '../components/molecules/LoadingState';
 import ErrorState from '../components/molecules/ErrorState';
 import FormField from '../components/molecules/FormField';
+import DatePickerField from '../components/molecules/DatePickerField';
+import SelectField from '../components/molecules/SelectField';
 import { api } from '../api/client';
 import { formatCurrency, formatDate, formatDateTime } from '../utils/formatters';
 import { colors, spacing } from '../constants/theme';
@@ -27,13 +30,33 @@ function createSaleDefaults(paymentMethod = 'card') {
   };
 }
 
+const WEATHER_OPTIONS = [
+  { value: 'sunny', label: 'Sunny', icon: '☀️' },
+  { value: 'partly_cloudy', label: 'Partly Cloudy', icon: '🌤️' },
+  { value: 'cloudy', label: 'Cloudy', icon: '☁️' },
+  { value: 'rainy', label: 'Rainy', icon: '🌧️' },
+  { value: 'windy', label: 'Windy', icon: '🌬️' },
+  { value: 'stormy', label: 'Stormy', icon: '⛈️' },
+];
+
 function createSessionDefaults() {
   return {
     title: '',
     location: '',
     sessionDate: dayjs().format('YYYY-MM-DD'),
-    weather: '',
+    weatherCondition: 'sunny',
+    weatherTemp: 24,
   };
+}
+
+function formatWeatherDescription(condition, temp) {
+  if (!condition && !temp) return undefined;
+  const option = WEATHER_OPTIONS.find(opt => opt.value === condition);
+  const label = option ? option.label : condition;
+  if (!label && !temp) return undefined;
+  if (!label) return `${temp}°C`;
+  if (temp == null) return label;
+  return `${label} ${temp}°C`;
 }
 
 export default function SalesScreen() {
@@ -89,6 +112,16 @@ export default function SalesScreen() {
   });
 
   const items = itemsQuery.data ?? [];
+  const itemOptions = useMemo(
+    () => items.map(item => ({
+      value: item.id,
+      label: item.name,
+      quantity: item.quantity,
+      price: item.price,
+      tag: item.tag,
+    })),
+    [items],
+  );
   const sessions = sessionsQuery.data ?? [];
   const openSession = useMemo(
     () => sessions.find(session => session.status === 'open') ?? null,
@@ -180,7 +213,7 @@ export default function SalesScreen() {
       title: sessionForm.title,
       location: sessionForm.location || undefined,
       sessionDate: sessionForm.sessionDate || undefined,
-      weather: sessionForm.weather || undefined,
+      weather: formatWeatherDescription(sessionForm.weatherCondition, sessionForm.weatherTemp),
     });
   };
 
@@ -236,26 +269,49 @@ export default function SalesScreen() {
               label="Title"
               value={sessionForm.title}
               onChangeText={value => setSessionForm(prev => ({ ...prev, title: value }))}
-              placeholder="Saturday Market"
+              placeholder="Saturday Session"
             />
             <FormField
               label="Location"
               value={sessionForm.location}
               onChangeText={value => setSessionForm(prev => ({ ...prev, location: value }))}
-              placeholder="Fitzroy Gardens"
+              placeholder="Lyne Park"
             />
-            <FormField
+            <DatePickerField
               label="Date"
               value={sessionForm.sessionDate}
-              onChangeText={value => setSessionForm(prev => ({ ...prev, sessionDate: value }))}
-              placeholder="YYYY-MM-DD"
+              onChange={value => setSessionForm(prev => ({ ...prev, sessionDate: value }))}
+              allowClear={false}
             />
-            <FormField
-              label="Weather"
-              value={sessionForm.weather}
-              onChangeText={value => setSessionForm(prev => ({ ...prev, weather: value }))}
-              placeholder="Sunny 23℃"
-            />
+            <View style={styles.weatherSection}>
+              <Text style={styles.fieldLabel}>Weather</Text>
+              <View style={styles.weatherChips}>
+                {WEATHER_OPTIONS.map(option => (
+                  <AppButton
+                    key={option.value}
+                    title={`${option.icon} ${option.label}`}
+                    onPress={() => setSessionForm(prev => ({ ...prev, weatherCondition: option.value }))}
+                    variant={sessionForm.weatherCondition === option.value ? 'primary' : 'secondary'}
+                    style={styles.weatherChip}
+                    textStyle={{ fontSize: 12 }}
+                  />
+                ))}
+              </View>
+              <View style={styles.weatherSliderHeader}>
+                <Text style={styles.fieldLabel}>Temperature</Text>
+                <Text style={styles.weatherTempValue}>{sessionForm.weatherTemp}°C</Text>
+              </View>
+              <Slider
+                minimumValue={15}
+                maximumValue={40}
+                step={1}
+                value={sessionForm.weatherTemp}
+                onValueChange={value => setSessionForm(prev => ({ ...prev, weatherTemp: Math.round(value) }))}
+                minimumTrackTintColor={colors.primary}
+                maximumTrackTintColor={colors.textMuted}
+                thumbTintColor={colors.primary}
+              />
+            </View>
             <AppButton
               title={createSessionMutation.isLoading ? 'Starting…' : 'Start session'}
               variant="secondary"
@@ -271,22 +327,30 @@ export default function SalesScreen() {
         {!canLogSale ? (
           <Text style={styles.helper}>Select an active session to enable sale logging.</Text>
         ) : null}
-        <Text style={styles.cardHint}>Choose an item</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            {items.map(item => (
-              <ItemChip
-                key={item.id}
-                item={item}
-                active={selectedItemId === item.id}
-                onSelect={() => {
-                  setSelectedItemId(item.id);
-                  setSaleForm(prev => ({ ...prev, unitPrice: '' }));
-                }}
-              />
-            ))}
-          </View>
-        </ScrollView>
+        <SelectField
+          label="Item"
+          placeholder={items.length ? 'Select an item' : 'No items available'}
+          options={itemOptions}
+          selectedValue={selectedItemId}
+          onSelect={option => {
+            setSelectedItemId(option.value);
+            setSaleForm(prev => ({ ...prev, unitPrice: '' }));
+          }}
+          helper={selectedItem ? `${selectedItem.quantity} on hand · ${formatCurrency(selectedItem.price)} each` : 'Select an inventory item to record the sale.'}
+          disabled={!items.length}
+          renderOption={(option) => (
+            <View style={styles.selectOptionRow}>
+              <View style={styles.selectOptionInfo}>
+                <Text style={styles.selectOptionTitle}>{option.label}</Text>
+                {option.tag ? <Text style={styles.selectOptionSubtitle}>{option.tag}</Text> : null}
+              </View>
+              <View style={styles.selectOptionMeta}>
+                <Text style={styles.selectOptionPrice}>{formatCurrency(option.price)}</Text>
+                <Text style={styles.selectOptionHelper}>{option.quantity} on hand</Text>
+              </View>
+            </View>
+          )}
+        />
         {!items.length ? <EmptyState message="Inventory is empty." /> : null}
 
         <View class="form-grid" style={styles.formGrid}>
@@ -353,12 +417,12 @@ export default function SalesScreen() {
       {selectedSession && sessionDetails ? (
         <>
           <SectionHeading
-            title={`Recent sales — ${selectedSession.title}`}
+            title={`Recent sales - ${selectedSession.title}`}
             style={{ marginTop: spacing.xl }}
           />
           <Card>
             {sessionDetails.sales?.length ? (
-              sessionDetails.sales.slice(0, 10).map(sale => (
+              sessionDetails.sales.slice(0, 10).map((sale, index, array) => (
                 <ListRow
                   key={sale.id}
                   title={`${sale.quantity} × ${sale.itemName}`}
@@ -370,6 +434,7 @@ export default function SalesScreen() {
                     </View>
                   }
                   onPress={() => navigation.navigate('SaleDetail', { sale })}
+                  showDivider={index !== array.length - 1}
                 />
               ))
             ) : (
@@ -382,7 +447,7 @@ export default function SalesScreen() {
       <SectionHeading title="Past sessions" style={{ marginTop: spacing.xl }} />
       <Card>
         {sessions.length ? (
-          sessions.map(session => (
+          sessions.map((session, index) => (
             <ListRow
               key={session.id}
               title={session.title}
@@ -398,6 +463,7 @@ export default function SalesScreen() {
                 </View>
               }
               onPress={() => setSelectedSessionId(session.id)}
+              showDivider={index !== sessions.length - 1}
             />
           ))
         ) : (
@@ -414,19 +480,6 @@ function SummaryStat({ label, value, compact = false }) {
       <Text style={styles.heroStatLabel}>{label}</Text>
       <Text style={styles.heroStatValue}>{value}</Text>
     </View>
-  );
-}
-
-function ItemChip({ item, active, onSelect }) {
-  return (
-    <AppButton
-      title={item.name}
-      onPress={onSelect}
-      variant={active ? 'primary' : 'secondary'}
-      style={styles.itemChip}
-      textStyle={{ fontSize: 14 }}
-      trailing={`${item.quantity} on hand`}
-    />
   );
 }
 
@@ -447,13 +500,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceSubtle,
     borderRadius: 12,
     padding: spacing.md,
-  },
-  itemScroller: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  itemChip: {
-    minWidth: 160,
   },
   formGrid: {
     flexDirection: 'row',
@@ -486,10 +532,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textMuted,
   },
-  cardHint: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
   listValue: {
     fontSize: 16,
     fontWeight: '600',
@@ -519,6 +561,59 @@ const styles = StyleSheet.create({
   heroStatValue: {
     fontSize: 18,
     fontWeight: '700',
+    color: colors.text,
+  },
+  selectOptionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  selectOptionInfo: {
+    flex: 1,
+    gap: spacing.xs / 2,
+  },
+  selectOptionTitle: {
+    fontSize: 16,
+    color: colors.text,
+    fontWeight: '500',
+  },
+  selectOptionSubtitle: {
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  selectOptionMeta: {
+    alignItems: 'flex-end',
+    gap: spacing.xs / 2,
+  },
+  selectOptionPrice: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  selectOptionHelper: {
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  weatherSection: {
+    gap: spacing.sm,
+  },
+  weatherChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  weatherChip: {
+    minWidth: 120,
+  },
+  weatherSliderHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  weatherTempValue: {
+    fontSize: 14,
+    fontWeight: '600',
     color: colors.text,
   },
 });

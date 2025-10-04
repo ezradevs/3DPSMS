@@ -38,37 +38,30 @@ export default function OperationsHomeScreen() {
   const navigation = useNavigation();
 
   return (
-    <ScreenContainer scrollable={false}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Operations</Text>
-        <Text style={styles.subtitle}>Manage custom orders, filament, print queue, expenses, and admin tools.</Text>
+    <ScreenContainer>
+      <Text style={styles.title}>Operations</Text>
+      <Text style={styles.subtitle}>Manage custom orders, filament, print queue, expenses, and admin tools.</Text>
 
-        <View style={styles.grid}>
-          {operations.map(operation => (
-            <Card key={operation.title} style={styles.card}>
-              <View style={{ gap: spacing.sm }}>
-                <Text style={styles.cardTitle}>{operation.title}</Text>
-                <Text style={styles.cardDescription}>{operation.description}</Text>
-                <AppButton
-                  title="Open"
-                  variant="secondary"
-                  onPress={() => navigation.navigate(operation.route)}
-                />
-              </View>
-            </Card>
-          ))}
-        </View>
-      </ScrollView>
+      <View style={styles.grid}>
+        {operations.map(operation => (
+          <Card key={operation.title} style={styles.card}>
+            <View style={{ gap: spacing.sm }}>
+              <Text style={styles.cardTitle}>{operation.title}</Text>
+              <Text style={styles.cardDescription}>{operation.description}</Text>
+              <AppButton
+                title="Open"
+                variant="secondary"
+                onPress={() => navigation.navigate(operation.route)}
+              />
+            </View>
+          </Card>
+        ))}
+      </View>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xxl,
-    paddingTop: 0,
-  },
   title: {
     fontSize: 28,
     fontWeight: '700',
