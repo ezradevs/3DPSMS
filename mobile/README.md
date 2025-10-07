@@ -31,7 +31,7 @@ The mobile client reads its API base URL from `app.json`:
 {
   "expo": {
     "extra": {
-      "apiBaseUrl": "http://localhost:4000/api"
+      "apiBaseUrl": "http://192.168.1.4:4000/api"
     }
   }
 }

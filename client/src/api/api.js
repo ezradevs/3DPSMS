@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.4:4000/api';
 
 async function request(path, { method = 'GET', body, headers, ...rest } = {}) {
   const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;

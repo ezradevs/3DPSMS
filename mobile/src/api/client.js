@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 
-const DEFAULT_BASE_URL = 'http://localhost:4000/api';
+const DEFAULT_BASE_URL = 'http://192.168.1.4:4000/api';
 
 function resolveBaseUrl() {
   const fromConfig = Constants.expoConfig?.extra?.apiBaseUrl;
