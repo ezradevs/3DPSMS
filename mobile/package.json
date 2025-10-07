@@ -4,10 +4,12 @@
   "private": true,
   "main": "expo-entry.js",
   "scripts": {
-    "start": "EXPO_USE_POLLING=1 expo start",
-    "android": "EXPO_USE_POLLING=1 expo start --android",
-    "ios": "EXPO_USE_POLLING=1 expo start --ios",
-    "web": "EXPO_USE_POLLING=1 expo start --web"
+    "start": "EXPO_USE_POLLING=1 node ./node_modules/expo/bin/cli start",
+    "android": "EXPO_USE_POLLING=1 node ./node_modules/expo/bin/cli start --android",
+    "ios": "EXPO_USE_POLLING=1 node ./node_modules/expo/bin/cli start --ios",
+    "web": "EXPO_USE_POLLING=1 node ./node_modules/expo/bin/cli start --web",
+    "web:build": "node ./node_modules/expo/bin/cli export --platform web --clear",
+    "web:preview": "npx serve dist"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",

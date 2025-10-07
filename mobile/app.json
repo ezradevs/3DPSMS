@@ -21,10 +21,38 @@
       }
     },
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "favicon": "./assets/icons/favicon.png",
+      "build": {
+        "output": "static"
+      },
+      "manifest": {
+        "name": "3DPSMS Mobile",
+        "short_name": "3DPSMS",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#1d4ed8",
+        "theme_color": "#1d4ed8",
+        "description": "Manage 3D print stall inventory, sales, and operations on the go.",
+        "icons": [
+          {
+            "src": "./assets/icons/pwa-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+          },
+          {
+            "src": "./assets/icons/pwa-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+          }
+        ]
+      }
     },
     "extra": {
-      "apiBaseUrl": "http://192.168.1.4:4000/api"
+      "apiBaseUrl": "https://app.theprintkid.store/api"
+
     }
   }
 }
