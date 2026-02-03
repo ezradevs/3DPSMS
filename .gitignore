@@ -8,3 +8,4 @@ client/dist/
 .DS_Store
 *.sqlite
 *.log
+.vercel
